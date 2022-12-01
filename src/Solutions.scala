@@ -7,16 +7,16 @@ import scala.util.Using
 
 def ex1A() : Int =
   Using(Source.fromFile("puzzles/puzz1")) {reader =>
-    reader.getLines().foldLeft(List(0))((l: List[Int], c: String) => c match {
+    reader.getLines().foldLeft(List(0))((l: List[Int], c: String) => c match
       case "" => 0 :: l
       case c => c.toInt + l.head :: l.tail
-    })
+    )
   }.get.max
 
 def ex1B() : Int =
   Using(Source.fromFile("puzzles/puzz1")) {reader =>
-    reader.getLines().foldLeft(List(0))((l: List[Int], c: String) => c match {
+    reader.getLines().foldLeft(List(0))((l: List[Int], c: String) => c match
       case "" => 0 :: l
       case c => c.toInt + l.head :: l.tail
-    })
+    )
   }.get.sorted.takeRight(3).sum
