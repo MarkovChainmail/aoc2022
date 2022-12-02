@@ -35,19 +35,15 @@ def ex2A(reader: Source) : Int =
     )
 def ex2B(reader: Source) : Int =
   // lose draw win
-  val x = 0
-  val y = 3
-  val z = 6
-
   reader.getLines
     .foldLeft(0)((i: Int, c: String) => Tuple.fromArray(c.split(" ")) match
       case ("A", v) => (1, v)
       case ("B", v) => (2, v)
       case ("C", v) => (3, v)
       match
-        case (v, "X") => i + x + ((v + 1) % 3 + 1)
-        case (v, "Y") => i + y + v
-        case (v, "Z") => i + z + (v % 3 + 1)
+        case (v, "X") => i + 0 + ((v + 1) % 3 + 1)
+        case (v, "Y") => i + 3 + v
+        case (v, "Z") => i + 6 + (v % 3 + 1)
     )
 
 def ex1A(reader: Source) : Int =
