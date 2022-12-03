@@ -3,32 +3,44 @@ import scala.util.Using
 
 @main def run() : Unit =
   // Name of file
-  val filename = "puzzles/puzz2"
+  val filename = "puzzles/puzz3"
 
   Using(Source.fromFile(filename)) {reader => println(
     // Name of exercise
-    ex2A(reader)
+    ex3B(reader)
   )}
+
+def ex3A(reader: Source) : Int =
+  reader.getLines
+    .map(s => s.slice(0,s.length/2).intersect(s.slice(s.length/2,s.length)).head) // Get the element in common
+    .map(c => if (c.isLower) c-96 else c-64+26) // ASCII Conversions to get the numerical value
+    .sum // Sum
+
+def ex3B(reader: Source) : Int =
+  reader.getLines
+    .grouped(3)
+    .map(g => g(0).intersect(g(1)).intersect(g(2)).head) // Get the element in common
+    .map(c => if (c.isLower) c-96 else c-64+26) // ASCII Conversions to get the numerical value
+    .sum // Sum
 
 def ex2A(reader: Source) : Int =
   reader.getLines
     .foldLeft(0)((i: Int, c: String) => Tuple.fromArray(c.split(" ").map {
-      case "X" | "A" => 1
+      case "X" | "A" => 1 // Convert all letters to values of move
       case "Y" | "B" => 2
       case "Z" | "C" => 3
     }) match
-      case (l: Int, r: Int) => i + r + ((r - l + 4) % 3) * 3
+      case (l: Int, r: Int) => i + r + ((r - l + 4) % 3) * 3 // Compute match outcome
     )
 
 def ex2B(reader: Source) : Int =
-  // lose draw win
   reader.getLines
     .foldLeft(0)((i: Int, c: String) => Tuple.fromArray(c.split(" ")) match
-      case ("A", v) => (1, v)
+      case ("A", v) => (1, v) // (Point value of enemy move, match outcome)
       case ("B", v) => (2, v)
       case ("C", v) => (3, v)
       match
-        case (v, "X") => i + 0 + ((v + 1) % 3 + 1)
+        case (v, "X") => i + 0 + ((v + 1) % 3 + 1) // Compute the correct move for desired outcome
         case (v, "Y") => i + 3 + v
         case (v, "Z") => i + 6 + (v % 3 + 1)
     )
@@ -36,13 +48,13 @@ def ex2B(reader: Source) : Int =
 def ex1A(reader: Source) : Int =
   reader.getLines
     .foldLeft(List(0))((l: List[Int], c: String) => c match
-      case "" => 0 :: l
-      case c => c.toInt + l.head :: l.tail
-    ).max
+      case "" => 0 :: l // Add a new head on newline
+      case c => c.toInt + l.head :: l.tail // Increment the head
+    ).max // Max
 
 def ex1B(reader: Source) : Int =
   reader.getLines
     .foldLeft(List(0))((l: List[Int], c: String) => c match
-      case "" => 0 :: l
-      case c => c.toInt + l.head :: l.tail
-    ).sorted.takeRight(3).sum
+      case "" => 0 :: l // Add a new head on newline
+      case c => c.toInt + l.head :: l.tail // Increment the head
+    ).sorted.takeRight(3).sum // Top 3
