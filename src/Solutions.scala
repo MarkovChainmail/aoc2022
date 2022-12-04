@@ -19,7 +19,7 @@ def ex4A(reader: Source) : Int =
 
 def ex4B(reader: Source) : Int =
   reader.getLines
-    .map(s => s.split(",")) // Partse input into 2 pairs of numbers
+    .map(s => s.split(",")) // Parse input into 2 pairs of numbers
     .map(s => s.map(c => c.split("-").map(i => i.toInt)))
     .count(s => (s(0)(0).compare(s(1)(1)) + s(0)(1).compare(s(1)(0))).abs < 2) // Compare boundaries (slightly differently)
 
