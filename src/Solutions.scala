@@ -1,14 +1,27 @@
 import scala.io.Source
+import scala.language.postfixOps
 import scala.util.Using
 
 @main def run() : Unit =
   // Name of file
-  val filename = "puzzles/puzz3"
+  val filename = "puzzles/puzz4"
 
   Using(Source.fromFile(filename)) {reader => println(
     // Name of exercise
-    ex3B(reader)
+    ex4B(reader)
   )}
+
+def ex4A(reader: Source) : Int =
+  reader.getLines
+    .map(s => s.split(","))
+    .map(s => s.map(c => c.split("-").map(i => i.toInt)))
+    .count(s => (s(0)(0).compare(s(1)(0)) + s(0)(1).compare(s(1)(1))).abs < 2)
+
+def ex4B(reader: Source) : Int =
+  reader.getLines
+    .map(s => s.split(","))
+    .map(s => s.map(c => c.split("-").map(i => i.toInt)))
+    .count(s => (s(0)(0).compare(s(1)(1)) + s(0)(1).compare(s(1)(0))).abs < 2)
 
 def ex3A(reader: Source) : Int =
   reader.getLines
