@@ -1,6 +1,7 @@
 .idea
 .bsp
 project
+target
 out
 puzzles
 aoc2022.iml
