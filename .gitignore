@@ -1,4 +1,7 @@
 .idea
+.bsp
+project
 out
 puzzles
 aoc2022.iml
+build.sbt
