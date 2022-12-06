@@ -5,14 +5,26 @@ import scala.util.Using
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz5"
+  val filename = "puzzles/puzz6"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex5A(reader)
+      ex6B(reader)
     )
   }
+
+def ex6A(reader: Source): Int =
+  reader.mkString
+    .sliding(4,1)
+    .zipWithIndex
+    .find((s: String, _) => s.distinct.length == 4) match {case Some((_, i: Int)) => i+4}
+
+def ex6B(reader: Source): Int =
+  reader.mkString
+    .sliding(14,1)
+    .zipWithIndex
+    .find((s: String, _) => s.distinct.length == 14) match {case Some((_, i: Int)) => i+14}
 
 def ex5A(reader: Source): String =
   val Step1 = reader.getLines
