@@ -1,3 +1,4 @@
+import java.security.KeyStore.TrustedCertificateEntry
 import scala.Console.println
 import scala.io.Source
 import scala.language.postfixOps
@@ -5,12 +6,12 @@ import scala.util.Using
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz6"
+  val filename = "puzzles/puzz5"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex6B(reader)
+      ex5B(reader)
     )
   }
 
@@ -27,41 +28,70 @@ def ex6B(reader: Source): Int =
     .find((s: String, _) => s.distinct.length == 14) match {case Some((_, i: Int)) => i+14}
 
 def ex5A(reader: Source): String =
-  val Step1 = reader.getLines
-    .foldLeft((List[(String, Int)](), List[List[Int]]()))((B, s: String) => s.head match
-      case ' ' | '[' => (B(0) ::: {
-        s.grouped(4) // Append to the list of boxes
-          .map(s => s.filter(c => c.isLetter))
-          .zip(LazyList.from(1)).toList // Index tuples at 1
-          .filterNot(_._1.isEmpty) // Remove empty tuples
-      } , B(1) // Drop the empty space
-      )
-      case _ => (B(0), {
-        println("C2")
-        val s1 = s.drop(5) // Append to the list of instructions
-          .replace(" from ", " ")
-          .replace(" to ", " ")
-          .split(" ")
-          .toList
-        println(s1)
-        println("what waaaah")
-        val s2 = s1
-          .map(_.toInt) +: B(1).toList
-        println(s1)
-        s2
-      }
-      )
+  val (initial_unparsed, steps_unparsed) = reader.getLines.span(_.take(1) match
+    case " " | "[" | "" => true
+    case _ => false
+  )
+
+  // Traverse bottom to top, drop out empty line
+  val initial_partial = initial_unparsed.toList.reverse.drop(1)
+
+  // Don't use more than 9 columns lol
+  val lines = initial_partial.head.filter(_.isDigit).toList.map(_.toString.toInt).max
+
+  val empty: List[List[String]] = List.fill(lines)(List())
+  //Fill out an empty list of lists
+  val initial_state_matrix : List[List[String]] = initial_partial.drop(1)
+    .foldLeft(empty)((l : List[List[String]], s) =>
+      s.drop(1)
+        .sliding(1, 4)
+        .zip(l)
+        .map((box, stack: List[String]) => if (box != " ") box :: stack else stack)
+        .toList
     )
 
-  println("step reacheed")
-  println(Step1)
+  //Parse the steps and apply them
+  val steps = steps_unparsed
+    .map(_.split("\\D+").filter(_.nonEmpty).map(_.toInt).toList)// Turn into list of numbers
 
-  // Functionally edit the maps until the final state has been reached
-  Step1._2.foldLeft(Step1._1.groupMap(_._2)(_._1))((B: Map[Int, List[String]], instruction: List[Int]) =>
-    B ++ List(instruction(1) -> B(instruction(1)).drop(instruction(0)),
-      instruction(2) -> (B(instruction(1)).take(instruction(0)).reverse ::: B(instruction(2))))
-  ).values.map(_.head).mkString("")
+  steps.foldLeft(initial_state_matrix)((l, step) =>
+        // Update with new positions
+        l.updated(step(1)-1,l(step(1)-1).drop(step(0))) // Take from fist position
+          .updated(step(2)-1, l(step(1)-1).take(step(0)).reverse ++ l(step(2)-1)) // Add onto second position
+  ).map(_.head).mkString("")
 
+def ex5B(reader: Source): String =
+  val (initial_unparsed, steps_unparsed) = reader.getLines.span(_.take(1) match
+    case " " | "[" | "" => true
+    case _ => false
+  )
+
+  // Traverse bottom to top, drop out empty line
+  val initial_partial = initial_unparsed.toList.reverse.drop(1)
+
+  // Don't use more than 9 columns lol
+  val lines = initial_partial.head.filter(_.isDigit).toList.map(_.toString.toInt).max
+
+  val empty: List[List[String]] = List.fill(lines)(List())
+  //Fill out an empty list of lists
+  val initial_state_matrix : List[List[String]] = initial_partial.drop(1)
+    .foldLeft(empty)((l : List[List[String]], s) =>
+      s.drop(1)
+        .sliding(1, 4)
+        .zip(l)
+        .map((box, stack: List[String]) => if (box != " ") box :: stack else stack)
+        .toList
+    )
+
+  //Parse the steps and apply them
+  val steps = steps_unparsed
+    .map(_.split("\\D+").filter(_.nonEmpty).map(_.toInt).toList)// Turn into list of numbers
+
+  steps.foldLeft(initial_state_matrix)((l, step) =>
+    // Update with new positions
+    l.updated(step(1)-1,l(step(1)-1).drop(step(0))) // Take from fist position
+      .updated(step(2)-1, l(step(1)-1).take(step(0)) ++ l(step(2)-1)) // Add onto second position
+  ).map(_.head).mkString("")
 
 
 def ex4A(reader: Source): Int =
