@@ -6,14 +6,91 @@ import scala.util.Using
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz5"
+  val filename = "puzzles/puzz8"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex5B(reader)
+      ex8B(reader)
     )
   }
+
+def ex8A(reader: Source) =
+  val array = reader.getLines
+    .map(_.toArray.map(_.toString.toInt))
+    .toArray // 2D Array
+
+  array.indices.flatMap(x => array(x).indices.map((x, _))) // iterate over all indices
+    .map((x, y) =>
+      val current = array(x)(y)
+      Vector(
+        (0 until x).exists(array(_)(y) >= current),
+        (x+1 until array.length).exists(array(_)(y) >= current),
+        (0 until y).exists(array(x)(_) >= current),
+        (y+1 until array(x).length).exists(array(x)(_) >= current)
+      ).contains(false)
+    ).count(x => x)
+
+def ex8B(reader: Source) =
+  val array = reader.getLines
+    .map(_.toArray.map(_.toString.toInt))
+    .toArray // 2D Array
+
+  def takeWhilePlusFailure(i: Iterable[Int], current: Int) =
+    val (prefix, postfix) = i.span(_ < current)
+    (prefix ++ postfix.take(1)).toList.length
+
+
+  array.indices.flatMap(x => array(x).indices.map((x, _))) // iterate over all indices
+    .map((x, y) =>
+      val current = array(x)(y)
+
+      val l = takeWhilePlusFailure((x-1 to 0 by -1).map(array(_)(y)), current)
+      val r =  takeWhilePlusFailure((x+1 until array.length).map(array(_)(y)), current)
+      val d =  takeWhilePlusFailure((y-1 to 0 by -1).map(array(x)(_)), current)
+      val u =  takeWhilePlusFailure((y+1 until array(x).length).map(array(x)(_)), current)
+
+      l*r*d*u
+    ).max
+
+// unfinished
+def ex7A(reader: Source): Int =
+  // Define some data structures
+  case class Folder(parent: String, children: Set[String], size: Int)
+  case class FileSystem(path: List[String], hierarchy: Map[String, Folder])
+
+  // Really should've used mutables here. The temptation of purism is strong...
+  val fs = reader.getLines.foldLeft(FileSystem(List(), Map()))((fs: FileSystem, c: String) =>
+    println(c)
+    println(fs)
+    c.take(4) match
+      case "$ cd" => c.drop(5) match // Update the current path
+        case ".." => fs.copy(path = fs.path.tail)
+        case res => fs.copy(path = res :: fs.path)
+      case "$ ls" => fs // Nothing to change here
+      // Copy over the old filesystem, but rearrange the children
+      case "dir " =>
+        val newFolder = c.drop(4)
+        val head = fs.path.head
+        // Update map entry of current root folder
+        val updatedCurrent = (head, fs.hierarchy(head).copy(children = fs.hierarchy(head).children + newFolder))
+
+        // Wanted to do this inline but idk why doesn't work
+        val possibleNew = (newFolder, Folder(head, Set(), 0))
+        // Add the new folder to the hierarchy
+        val newHierarchy = if (fs.hierarchy.contains(newFolder)) fs.hierarchy else fs.hierarchy + possibleNew
+        // Finally, add the new filesystem and the current root together
+        fs.copy(hierarchy = newHierarchy + updatedCurrent)
+      case _ =>
+        // Make da folder bigger
+        val head = fs.path.head
+        val updatedCurrent = (head, fs.hierarchy(head).copy(size = fs.hierarchy(head).size + c.takeWhile(_.isDigit).toInt))
+        fs.copy(hierarchy = fs.hierarchy + updatedCurrent)
+    ).hierarchy // We can toss out the path now
+
+  println("get")
+  def sizeTotal(s: String, m: Map[String, Folder]) : Int = m(s).size + m(s).children.map(sizeTotal(_, m)).sum
+  fs.keys.map(sizeTotal(_, fs)).filter(_ <= 100000).sum
 
 def ex6A(reader: Source): Int =
   reader.mkString
