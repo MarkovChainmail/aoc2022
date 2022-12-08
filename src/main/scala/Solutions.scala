@@ -6,12 +6,12 @@ import scala.util.Using
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz8"
+  val filename = "puzzles/puzz7"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex8B(reader)
+      ex7A(reader)
     )
   }
 
@@ -54,43 +54,59 @@ def ex8B(reader: Source) =
     ).max
 
 // unfinished
-def ex7A(reader: Source): Int =
+def ex7A(reader: Source) =
   // Define some data structures
   case class Folder(parent: String, children: Set[String], size: Int)
-  case class FileSystem(path: List[String], hierarchy: Map[String, Folder])
+  case class FileSystem(path: List[String], hierarchy: Map[String, Folder]) {
+    def newFolder(name: String): FileSystem =
+      val uniq = (name :: path).mkString("/")
+      if (!(hierarchy contains uniq))
+        val newfolder : Map[String, Folder] = if (path.isEmpty)
+          // When there's no path, create a root folder
+          Map(uniq -> Folder("", Set(), 0))
+        else
+          // When there is a path, add to the hierarchy
+          Map(
+            uniq -> Folder(path.mkString("/"), Set(), 0),
+            path.mkString("/") -> hierarchy(path.mkString("/")).copy(children = hierarchy(path.mkString("/")).children + uniq)
+          )
+        this.copy(hierarchy = hierarchy ++ newfolder)
+      else
+        this
+
+    def addFile(size: Int): FileSystem =
+      val oldf = hierarchy(path.mkString("/"))
+      val newf = (path.mkString("/"), oldf.copy(size = oldf.size + size))
+      this.copy(hierarchy = hierarchy + newf)
+
+    def downwards(name: String): FileSystem =
+      newFolder(name).copy(path = name :: path)
+
+    def upwards(): FileSystem =
+      this.copy(path = path.tail)
+
+    def dirSize(name: String): Int =
+      hierarchy(name).children.map(dirSize).sum + hierarchy(name).size
+
+    def sum(lessThan: Int) =
+      hierarchy
+      .keys
+      .map(dirSize)
+      .filter(_ <= lessThan).sum
+  }
 
   // Really should've used mutables here. The temptation of purism is strong...
   val fs = reader.getLines.foldLeft(FileSystem(List(), Map()))((fs: FileSystem, c: String) =>
-    println(c)
-    println(fs)
-    c.take(4) match
-      case "$ cd" => c.drop(5) match // Update the current path
-        case ".." => fs.copy(path = fs.path.tail)
-        case res => fs.copy(path = res :: fs.path)
-      case "$ ls" => fs // Nothing to change here
-      // Copy over the old filesystem, but rearrange the children
-      case "dir " =>
-        val newFolder = c.drop(4)
-        val head = fs.path.head
-        // Update map entry of current root folder
-        val updatedCurrent = (head, fs.hierarchy(head).copy(children = fs.hierarchy(head).children + newFolder))
+    c.split(" ").toList match
+      case "$" :: "cd" :: tail => tail.head match // Update the current path
+        case ".." => fs.upwards()
+        case res : String => fs.downwards(res)
+      case "$" :: "ls" :: _ => fs // Nothing to change here
+      case "dir" :: _ => fs //.newFolder(name)
+      case num :: _ => fs.addFile(num.toInt)
+    )
 
-        // Wanted to do this inline but idk why doesn't work
-        val possibleNew = (newFolder, Folder(head, Set(), 0))
-        // Add the new folder to the hierarchy
-        val newHierarchy = if (fs.hierarchy.contains(newFolder)) fs.hierarchy else fs.hierarchy + possibleNew
-        // Finally, add the new filesystem and the current root together
-        fs.copy(hierarchy = newHierarchy + updatedCurrent)
-      case _ =>
-        // Make da folder bigger
-        val head = fs.path.head
-        val updatedCurrent = (head, fs.hierarchy(head).copy(size = fs.hierarchy(head).size + c.takeWhile(_.isDigit).toInt))
-        fs.copy(hierarchy = fs.hierarchy + updatedCurrent)
-    ).hierarchy // We can toss out the path now
-
-  println("get")
-  def sizeTotal(s: String, m: Map[String, Folder]) : Int = m(s).size + m(s).children.map(sizeTotal(_, m)).sum
-  fs.keys.map(sizeTotal(_, fs)).filter(_ <= 100000).sum
+  fs.sum(100000)
 
 def ex6A(reader: Source): Int =
   reader.mkString
