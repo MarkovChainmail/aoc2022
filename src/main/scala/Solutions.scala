@@ -3,17 +3,130 @@ import scala.Console.println
 import scala.io.Source
 import scala.language.postfixOps
 import scala.util.Using
+import scala.collection.mutable.Map as MutableMap
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz7"
+  val filename = "puzzles/puzz9"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex7A(reader)
+      ex9B(reader)
     )
   }
+
+def ex9A(reader: Source) =
+  case class Coordinates(head: (Int, Int), tail: (Int, Int), tailVisited: Set[(Int, Int)])
+  reader.getLines
+    .flatMap(s => List.fill(s.split(" ")(1).toInt)(s.split(" ")(0))) // Flatten into a list of single steps
+    .foldLeft(Coordinates((0,0),(0,0),Set((0,0))))((C: Coordinates, s: String) =>
+      val (hX, hY) = C.head
+      val (tX, tY) = C.tail
+      s match
+        case "U" =>
+          val headNew = (hX, hY+1)
+          if (hY <= tY)
+            // Tail doesn't move if not forced
+            C.copy(head = headNew)
+          else
+            if (hX == tX)
+              // Move up vertically
+              val tailNew = (tX, tY+1)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+            else
+              // Move up diagonally
+              val tailNew = (hX, tY+1)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+        case "D" =>
+          val headNew = (hX, hY - 1)
+          if (hY >= tY)
+            // Tail doesn't move if not forced
+            C.copy(head = headNew)
+          else
+            if (hX == tX)
+              // Move down vertically
+              val tailNew = (tX, tY - 1)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+            else
+              // Move down diagonally
+              val tailNew = (hX, tY - 1)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+        case "L" =>
+          val headNew = (hX - 1, hY)
+          if (hX >= tX)
+            // Tail doesn't move if not forced
+            C.copy(head = headNew)
+          else
+            if (hY == tY)
+              // Move left horizontally
+              val tailNew = (tX - 1, tY)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+            else
+              // Move left diagonally
+              val tailNew = (tX - 1, hY)
+              Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+        case "R" =>
+           val headNew = (hX + 1, hY)
+           if (hX <= tX)
+              // Tail doesn't move if not forced
+              C.copy(head = headNew)
+           else
+             if (hY == tY)
+               // Move right horizontally
+               val tailNew = (tX + 1, tY)
+               Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+             else
+               // Move right diagonally
+               val tailNew = (tX + 1, hY)
+               Coordinates(headNew, tailNew, C.tailVisited + tailNew)
+    ).tailVisited.size
+
+def ex9B(reader: Source) =
+    case class Coordinates(head: (Int, Int), tail: List[(Int, Int)], tailVisited: Set[(Int, Int)])
+    reader.getLines
+      .flatMap(s => List.fill(s.split(" ")(1).toInt)(s.split(" ")(0))) // Flatten into a list of single steps
+      .foldLeft(Coordinates((0, 0), List.fill(9)(0,0), Set((0, 0))))((C: Coordinates, s: String) =>
+        val (hX, hY) = C.head
+        val headNew = s match
+          case "U" => (hX, hY + 1)
+          case "D" => (hX, hY - 1)
+          case "L" => (hX - 1, hY)
+          case "R" => (hX + 1, hY)
+
+        val tailNew = C.tail.zip(headNew :: C.tail).map(c =>
+          val ((tX,tY),(hX,hY)) = c
+          val (horizontal, vertical) = ((tX-hX).abs == 2, (tY-hY).abs == 2)
+          (
+            // If not compelled to move horizontally by head
+            if (!horizontal)
+              // If diagonal movement
+              if (vertical && tX != hX)
+                hX
+              // If no horizontal movement
+              else
+                tX
+            else
+              // Compelled to move by head
+              tX + (hX-tX) / 2
+            ,
+            // If not compelled to move vertically by head
+            if (!vertical)
+            // If diagonal movement
+              if (horizontal && tY != hY)
+                hY
+              // If no horizontal movement
+              else
+                tY
+            else
+            // Compelled to move by head
+              tY + (hY - tY) / 2
+          )
+        )
+
+        Coordinates(headNew, tailNew, C.tailVisited ++ tailNew.takeRight(1))
+
+      ).tailVisited.size
 
 def ex8A(reader: Source) =
   val array = reader.getLines
@@ -107,6 +220,46 @@ def ex7A(reader: Source) =
     )
 
   fs.sum(100000)
+
+def ex7AA(reader: Source) =
+  // Define some data structures
+  case class Tree(name: String, parent: Tree, children: MutableMap[String, Tree], size: Int)
+
+  var root = Tree("/", null, MutableMap(), 0)
+  val fs = reader.getLines.foldLeft(root)((fs: Tree, c: String) =>
+    println(fs)
+    println(c)
+    c.split(" ").toList match
+      case "$" :: "cd" :: tail => tail.head match // Update the current path
+        case "/" => fs
+        case ".." => fs.parent
+        case res : String =>
+          if (fs.children contains res)
+            fs.children(res)
+          else
+            val newChild = Tree(res, fs, MutableMap(), 0)
+            fs.children.addOne((res, newChild))
+            newChild
+      case "$" :: "ls" :: _ => fs // Nothing to change here
+      case "dir" :: _ => fs // Nothing to change here
+      case num :: _ =>
+        if (fs.name == "/")
+          root = fs.copy(size = fs.size + num.toInt)
+          root
+        else
+          fs.parent.children.addOne((fs.name, fs.copy(size = fs.size + num.toInt)))
+          fs
+  )
+
+  println(fs)
+
+  def dirSize(root: Tree): Int =
+    root.children.values.map(dirSize).sum + root.size
+
+  def breadth(root: Tree): Iterable[Tree] =
+    root.children.values ++ root.children.values.flatMap(_.children.values)
+
+  breadth(root).map(dirSize).filter(_ < 100000)
 
 def ex6A(reader: Source): Int =
   reader.mkString
