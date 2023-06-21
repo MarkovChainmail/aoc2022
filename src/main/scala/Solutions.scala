@@ -2,19 +2,320 @@ import java.security.KeyStore.TrustedCertificateEntry
 import scala.Console.println
 import scala.io.Source
 import scala.language.postfixOps
-import scala.util.Using
-import scala.collection.mutable.Map as MutableMap
+import scala.util.{Try, Using}
+import scala.collection.mutable.{ListBuffer, Map as MutableMap}
+import scala.collection.immutable.Queue
 
 @main def run(): Unit =
 // Name of file
-  val filename = "puzzles/puzz9"
+  val filename = "puzzles/testy"
 
   Using(Source.fromFile(filename)) { reader =>
     println(
       // Name of exercise
-      ex9B(reader)
+      ex18A(reader)
     )
   }
+
+def ex18A(reader: Source) =
+  val cubes = reader.getLines.map(_.split(",").map(_.toInt).toList).toList
+  cubes.map(
+    c => ((0 to 2).map(i => c.updated(i,c(i)+1)) ++ (0 to 2).map(i => c.updated(i,c(i)-1)))
+        .map(neighbor => if (!cubes.contains(neighbor)) 1 else 0)
+        .sum
+  ).sum
+
+// TOO LOW
+def ex18B(reader: Source) =
+  val cubes = reader.getLines.map(_.split(",").map(_.toInt).toList).toSet
+
+  // Get the minimal and maximal value
+  val xs = cubes.map(_(0))
+  val ys = cubes.map(_(1))
+  val zs = cubes.map(_(2))
+
+  val (xmin, xmax, ymin, ymax, zmin, zmax) = (xs.min, xs.max, ys.min, ys.max, zs.min, zs.max)
+  val depth = List(xmax-xmin, ymax-ymin, zmax-zmin).max
+
+  // Create an outer layer of air and work your way inwards
+  val outerAir = (
+    (xmin to xmax).flatMap(x => (ymin to ymax).flatMap(y => List(List(x,y,zmin-1), List(x,y,zmax+1)))) ++
+    (xmin to xmax).flatMap(x => (zmin to zmax).flatMap(z => List(List(x,ymin-1,z), List(x,ymax+1,z)))) ++
+    (ymin to ymax).flatMap(y => (zmin to zmax).flatMap(z => List(List(xmin-1,y,z), List(xmax+1,y,z))))
+    ).toSet
+
+
+  val allAir = (0 to depth).foldLeft(outerAir)((air, d) =>
+    // Generate a new layer of air molecules
+    air ++ (
+      (xmin+d to xmax-d).flatMap(x => (ymin+d to ymax-d).flatMap(y => List(List(x, y, zmin+d), List(x, y, zmax-d)))) ++
+      (xmin+d to xmax-d).flatMap(x => (zmin+d to zmax-d).flatMap(z => List(List(x, ymin+d, z), List(x, ymax-d, z)))) ++
+      (ymin+d to ymax-d).flatMap(y => (zmin+d to zmax-d).flatMap(z => List(List(xmin+d, y, z), List(xmax-d, y, z))))
+    ).toSet
+
+      // Is potentially air?
+      .diff(cubes)
+      // Has a neighbor in the air?
+      .filter {
+        case List(x, y, z) =>
+          List(
+            List(x-1,y,z),List(x+1,y,z),List(x,y-1,z),List(x,y+1,z),List(x,y,z-1),List(x,y,z+1)
+          ).exists(air.contains)
+      }
+  )
+
+  // Count all air molecules that have a surface neighbor
+  allAir.toList.flatMap(
+    c => ((0 to 2).map(i => c.updated(i, c(i) + 1)) ++ (0 to 2).map(i => c.updated(i, c(i) - 1)))
+  ).count(cubes.contains)
+
+def ex17A(reader: Source) =
+  val rocks = List(
+    List((0,0),(1,0),(2,0),(3,0)),
+    List((1,0),(0,1),(1,1),(2,1),(1,2)),
+    List((0,0),(1,0),(2,0),(2,1),(2,2)),
+    List((0,0),(0,1),(0,2),(0,3)),
+    List((0,0),(0,1),(1,0),(1,1))
+  )
+
+  object Itr {
+    val template: String = reader.mkString
+    var index = 0
+
+    def next: Char =
+      val currentIndex = index
+      index = (index+1)%(template.length-1)
+      template(currentIndex)
+  }
+
+  // Fold over the rocks to get a terrain coordinate map
+  (0 until 2022).foldLeft((0 to 6).map((_,0)).toSet)((terrain:Set[(Int,Int)], i:Int) =>
+
+    // Initial position
+    var rock: List[(Int, Int)] = rocks(i % 5)
+    val highest: Int = terrain.maxBy(_._2)._2
+
+      // Set rock in its place
+    rock = rock.map((x,y) => (x+2, y+4+highest))
+
+    // Heighten the walls
+    var falling = true
+    while (falling) {
+      val nxt = Itr.next
+      //println(nxt)
+
+      // Sideways wind
+      val newRock = nxt match
+        case '<' => rock.map((x,y) => (x-1, y))
+        case '>' => rock.map((x,y) => (x+1, y))
+
+      if (terrain.intersect(newRock.toSet).isEmpty && !newRock.exists((x,_) => 0 > x || x > 6))
+        rock = newRock
+
+      // Downwards fall
+      val newRockDown = rock.map((x,y) => (x,y-1))
+      if (terrain.intersect(newRockDown.toSet).nonEmpty)
+        falling = false
+      else
+        rock = newRockDown
+    }
+
+    val newTerrain = terrain ++ rock
+    // Filter out the lower sections of the tower
+    val bottoms = newTerrain.groupBy(_._1).values.map(_.map(_._2).max)
+    //println(bottoms)
+    val bottom = bottoms.min
+    newTerrain.filter(_._2 >= bottom)
+  ).maxBy(_._2)._2
+
+
+def ex14A(reader: Source) =
+  val origin = (500,0)
+
+  val rock = reader.getLines.map(_.split(" -> ").toList
+    .map(_.split(",").map(_.toInt).toList).map({case List(x,y) => (x,y)}))
+    .flatMap(l =>
+        l.zip(l.drop(1)).map(c =>
+          if (c(0)(0) == c(1)(0))
+            if (c(0)(1) < c(1)(1))
+              (c(0)(1) to c(1)(1)).map((c(0)(0), _))
+            else
+              (c(1)(1) to c(0)(1)).map((c(0)(0), _))
+          else
+            if (c(0)(0) < c(1)(0))
+              (c(0)(0) to c(1)(0)).map((_, c(1)(1)))
+            else
+              (c(1)(0) to c(0)(0)).map((_, c(1)(1)))
+        )
+      ).flatten.toSet
+
+  val (xmin, xmax) = (rock.minBy(_._1)._1, rock.maxBy(_._1)._1)
+
+  def sandFall(fallen: Int, grain: (Int, Int), pile: Set[(Int, Int)]): Int =
+    if (grain._1 < xmin || grain._1 > xmax)
+      fallen
+    else
+      val (down, left, right) = ((grain._1, grain._2+1), (grain._1-1, grain._2+1), (grain._1+1, grain._2+1))
+
+      // Make the grain fall
+      if (!pile.contains(down))
+        sandFall(fallen, down, pile)
+      else if (!pile.contains(left))
+        sandFall(fallen, left, pile)
+      else if (!pile.contains(right))
+        sandFall(fallen, right, pile)
+      else
+        sandFall(fallen+1, origin, pile+grain)
+
+  sandFall(0, origin, rock)
+
+def ex14B(reader: Source) =
+  val origin = (500,0)
+
+  val rock = reader.getLines.map(_.split(" -> ").toList
+    .map(_.split(",").map(_.toInt).toList).map({case List(x,y) => (x,y)}))
+    .flatMap(l =>
+      l.zip(l.drop(1)).map(c =>
+        if (c(0)(0) == c(1)(0))
+          if (c(0)(1) < c(1)(1))
+            (c(0)(1) to c(1)(1)).map((c(0)(0), _))
+          else
+            (c(1)(1) to c(0)(1)).map((c(0)(0), _))
+        else
+          if (c(0)(0) < c(1)(0))
+            (c(0)(0) to c(1)(0)).map((_, c(1)(1)))
+          else
+            (c(1)(0) to c(0)(0)).map((_, c(1)(1)))
+      )
+    ).flatten.toSet
+
+  val ymax = rock.maxBy(_._2)._2
+
+  def sandFall(fallen: Int, grain: (Int, Int), pile: Set[(Int, Int)]): Int =
+    val (down, left, right) = ((grain._1, grain._2+1), (grain._1-1, grain._2+1), (grain._1+1, grain._2+1))
+
+    // Make the grain fall
+    if (down._2 == ymax+2)
+      sandFall(fallen+1, origin, pile+grain)
+    else if (!pile.contains(down))
+      sandFall(fallen, down, pile)
+    else if (!pile.contains(left))
+      sandFall(fallen, left, pile)
+    else if (!pile.contains(right))
+      sandFall(fallen, right, pile)
+    else if (grain == origin)
+      // Base case!!
+      fallen+1
+    else
+      sandFall(fallen+1, origin, pile+grain)
+
+  sandFall(0, origin, rock)
+
+def ex12A(reader: Source) =
+  // Create a height map of the area
+  var heightMap = reader.getLines
+    .map(_.toList.zipWithIndex)
+    .zipWithIndex
+    .flatMap((l: List[(Char, Int)], i: Int) => l.map((c: Char, j: Int) => ((j, i), c)))
+    .toMap
+
+  val start = heightMap.find(_._2 == 'S').get(0)
+  val end = heightMap.find(_._2 == 'E').get(0)
+
+  heightMap = heightMap ++ Map(start -> 'a', end -> 'z')
+
+  def BFS(toVisit: List[(Int, Int)], visited: Map[(Int, Int), Int]): Map[(Int, Int), Int] = toVisit match
+    case head :: tail =>
+      // Check if the positions in each direction are visitable from the current positions
+      val visitable2 = List(
+        (head._1+1,head._2),
+        (head._1-1,head._2),
+        (head._1,head._2+1),
+        (head._1,head._2-1)
+      )
+        // Accessible by height and exists on the map
+        .filter(heightMap.contains(_))
+        //.filter(heightMap(head)+1 <= heightMap(_))
+
+      val visitable = visitable2.filter(heightMap(head).toInt + 1 >= heightMap(_).toInt)
+
+      // Create new map entries when the coordinate doesnt exist or has worse distance
+      val pathUpdates = visitable
+        .filter(visited.getOrElse(_,Int.MaxValue)>visited(head)+1)
+        .map((_,visited(head)+1))
+
+      // Don't try to visit locations that have been visited
+      BFS(tail ++ visitable.filter(!visited.contains(_)), visited ++ pathUpdates)
+
+    case Nil => visited
+
+  BFS(List(start),Map(start -> 0))(end)
+
+
+def ex12B(reader: Source) =
+  // Create a height map of the area
+  var heightMap = reader.getLines
+    .map(_.toList.zipWithIndex)
+    .zipWithIndex
+    .flatMap((l: List[(Char, Int)], i: Int) => l.map((c: Char, j: Int) => ((j, i), c)))
+    .toMap
+
+  val start = heightMap.filter(entry => (entry._2 == 'S') || (entry._2 == 'a'))
+  val originalstart = heightMap.find(_._2 == 'S').get(0)
+  val end = heightMap.find(_._2 == 'E').get(0)
+
+  heightMap = heightMap ++ Map(originalstart -> 'a', end -> 'z')
+
+  def BFS(toVisit: List[(Int, Int)], visited: Map[(Int, Int), Int]): Map[(Int, Int), Int] = toVisit match
+    case head :: tail =>
+      // Check if the positions in each direction are visitable from the current positions
+      val visitable2 = List(
+        (head._1+1,head._2),
+        (head._1-1,head._2),
+        (head._1,head._2+1),
+        (head._1,head._2-1)
+      )
+        // Accessible by height and exists on the map
+        .filter(heightMap.contains(_))
+      //.filter(heightMap(head)+1 <= heightMap(_))
+
+      val visitable = visitable2.filter(heightMap(head).toInt + 1 >= heightMap(_).toInt)
+
+      // Create new map entries when the coordinate doesnt exist or has worse distance
+      val pathUpdates = visitable
+        .filter(visited.getOrElse(_,Int.MaxValue)>visited(head)+1)
+        .map((_,visited(head)+1))
+
+      // Don't try to visit locations that have been visited
+      BFS(tail ++ visitable.filter(!visited.contains(_)), visited ++ pathUpdates)
+
+    case Nil => visited
+
+  println(start.toList.map(_._1))
+  start.toList.map(_._1).map(c => BFS(List(c),Map(c -> 0)).getOrElse(end,Int.MaxValue)).toList.min
+
+
+def ex10A(reader: Source) =
+  (Seq(0) ++ reader.getLines
+    .flatMap(l => if (l.take(4)=="noop") List(0) else List(0, l.split(" ")(1).toInt)))
+    .grouped(20)
+    .scanLeft(1)(_+_.sum)
+    .zipWithIndex
+    .filter((_, i) => i % 2 == 1)
+    .take(6)
+    .map((v, i) => 20 * i * v)
+    .sum
+
+def ex10B(reader: Source) =
+  reader.getLines
+    .flatMap(l => if (l.take(4)=="noop") List(0) else List(0, l.split(" ")(1).toInt))
+    .scanLeft(1)(_+_)
+    .zipWithIndex
+    .map((v, i) => if (i % 40 + 1 >= v && v >= i % 40 - 1) "#" else ".")
+    //.map((v, i) => (i % 40, v))
+    .grouped(40)
+    .map(_.mkString(""))
+    .mkString("\n")
 
 def ex9A(reader: Source) =
   case class Coordinates(head: (Int, Int), tail: (Int, Int), tailVisited: Set[(Int, Int)])
@@ -166,100 +467,9 @@ def ex8B(reader: Source) =
       l*r*d*u
     ).max
 
-// unfinished
-def ex7A(reader: Source) =
-  // Define some data structures
-  case class Folder(parent: String, children: Set[String], size: Int)
-  case class FileSystem(path: List[String], hierarchy: Map[String, Folder]) {
-    def newFolder(name: String): FileSystem =
-      val uniq = (name :: path).mkString("/")
-      if (!(hierarchy contains uniq))
-        val newfolder : Map[String, Folder] = if (path.isEmpty)
-          // When there's no path, create a root folder
-          Map(uniq -> Folder("", Set(), 0))
-        else
-          // When there is a path, add to the hierarchy
-          Map(
-            uniq -> Folder(path.mkString("/"), Set(), 0),
-            path.mkString("/") -> hierarchy(path.mkString("/")).copy(children = hierarchy(path.mkString("/")).children + uniq)
-          )
-        this.copy(hierarchy = hierarchy ++ newfolder)
-      else
-        this
 
-    def addFile(size: Int): FileSystem =
-      val oldf = hierarchy(path.mkString("/"))
-      val newf = (path.mkString("/"), oldf.copy(size = oldf.size + size))
-      this.copy(hierarchy = hierarchy + newf)
 
-    def downwards(name: String): FileSystem =
-      newFolder(name).copy(path = name :: path)
 
-    def upwards(): FileSystem =
-      this.copy(path = path.tail)
-
-    def dirSize(name: String): Int =
-      hierarchy(name).children.map(dirSize).sum + hierarchy(name).size
-
-    def sum(lessThan: Int) =
-      hierarchy
-      .keys
-      .map(dirSize)
-      .filter(_ <= lessThan).sum
-  }
-
-  // Really should've used mutables here. The temptation of purism is strong...
-  val fs = reader.getLines.foldLeft(FileSystem(List(), Map()))((fs: FileSystem, c: String) =>
-    c.split(" ").toList match
-      case "$" :: "cd" :: tail => tail.head match // Update the current path
-        case ".." => fs.upwards()
-        case res : String => fs.downwards(res)
-      case "$" :: "ls" :: _ => fs // Nothing to change here
-      case "dir" :: _ => fs //.newFolder(name)
-      case num :: _ => fs.addFile(num.toInt)
-    )
-
-  fs.sum(100000)
-
-def ex7AA(reader: Source) =
-  // Define some data structures
-  case class Tree(name: String, parent: Tree, children: MutableMap[String, Tree], size: Int)
-
-  var root = Tree("/", null, MutableMap(), 0)
-  val fs = reader.getLines.foldLeft(root)((fs: Tree, c: String) =>
-    println(fs)
-    println(c)
-    c.split(" ").toList match
-      case "$" :: "cd" :: tail => tail.head match // Update the current path
-        case "/" => fs
-        case ".." => fs.parent
-        case res : String =>
-          if (fs.children contains res)
-            fs.children(res)
-          else
-            val newChild = Tree(res, fs, MutableMap(), 0)
-            fs.children.addOne((res, newChild))
-            newChild
-      case "$" :: "ls" :: _ => fs // Nothing to change here
-      case "dir" :: _ => fs // Nothing to change here
-      case num :: _ =>
-        if (fs.name == "/")
-          root = fs.copy(size = fs.size + num.toInt)
-          root
-        else
-          fs.parent.children.addOne((fs.name, fs.copy(size = fs.size + num.toInt)))
-          fs
-  )
-
-  println(fs)
-
-  def dirSize(root: Tree): Int =
-    root.children.values.map(dirSize).sum + root.size
-
-  def breadth(root: Tree): Iterable[Tree] =
-    root.children.values ++ root.children.values.flatMap(_.children.values)
-
-  breadth(root).map(dirSize).filter(_ < 100000)
 
 def ex6A(reader: Source): Int =
   reader.mkString
